@@ -13,12 +13,26 @@ div {position:absolute; width: 500px;height: 500px;}
 function generateFaces() {
   var numberOfFaces = 5;
   var theLeftSide = document.getElementById("leftSide");
-  var heightRange = theLeftSide.style.width - 
+  var sideHeight = window.getComputedStyle(theLeftSide).getPropertyValue("height");
+  // Remove 'px' from sring
+  sideHeight = sideHeight.slice(0, - 2);
+  var sideWidth = window.getComputedStyle(theLeftSide).getPropertyValue("width");
+  sideWidth = sideWidth.slice(0, - 2);
+  
+
   for (var i = 0; i < numberOfFaces; i++) {
     var img = document.createElement("img");
+
     img.src = "smile.png";
-    img.style.top = Math.floor(400*Math.random()) + "px";
-    img.style.left = Math.floor(400*Math.random()) + "px";
+
+    var yRange = sideHeight - img.height;
+    var xRange = sideWidth - img.width;
+
+    console.log("Img width : " + img.width);
+    console.log("Side width : " + sideWidth);
+
+    img.style.top = Math.floor(yRange*Math.random()) + "px";
+    img.style.left = Math.floor(xRange*Math.random()) + "px";
     console.log(img.style.top);
     console.log("top" + img.style.top);
 
