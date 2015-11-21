@@ -1,0 +1,157 @@
+---
+title: "Regression Models Project"
+author: "Vesa Kuoppala"
+date: "20 marraskuuta 2015"
+output: pdf_document
+---
+
+
+## Executive summary
+
+This analysis is performed for the *Motor Trend*, a magazine about the automobile industry. By looking at a data set of a collection of cars, we are interested in exploring the relationship between a set of variables and miles per gallon (MPG) as outcome. We are particularly interested to explore:
+
++ *"Is an automatic or manual transmission better for MPG?"*
++ *"Quantify the MPG difference between automatic and manual transmissions"*
+
+In order to answer to these questions we performed exploratory data analyses and used hypothesis testing and linear regression as methodologies to make inference. We established both simple and multivariate linear regression analysis.
+However, the results of the multivariate regression model is more promising as it includes the potential effect of other variables on MPG.
+
+To answer to the question we found out that **using simple model manual transmission is better for MPG and it is about 7 MPG more for cars with manual transmission.** However, further analysis indicate that we must consider other variables in our analysis to understand better how the transmission affects MPG.
+
+Using model selection strategy, we found out that **among all variables weight and quarter mile time (acceleration) have significant impact in quantifying the difference of MPG between automatic and manual transmission cars, on average, manual transmission cars have 2.94 MPGs more than automatic transmission cars.** 
+
+This report is longer than recommended 2 page content + 3 page appendix for pictures. The author felt it necessary to use more space to evaluate models and to come to conclusion about the chosen model.
+
+## Data Set
+
+For the purpose of this analyis we use `mtcars` dataset, which is a dataset that was extracted from the 1974 *Motor Trend* US magazine, and comprises fuel consumption and 10 aspects of automobile design and performance for 32 automobiles (1973 - 1974 models). First six records of the dataset are shown below:
+```{r, echo = FALSE}
+data("mtcars")
+library(knitr)
+head(mtcars)
+```
+## Exploratory data analyses
+
+We begin the analysis by performing some initial explaratory data analysis to get better idea of the existing patterns between variables in the data set. Pairwise scatterplot of variables are in Figure 1 in Appendix
+
+It is also worthwhile check how MPG varies by automatic versus manual transmission. Figure 2 in Appendix has boxplot of MPG by automatic and manual transmissions.
+
+We can make a hypothesis from visualization: it appears that automatic cars have a lower miles per gallon a.k.a lower fuel efficiency, than manual cars. Is this just a random chance, do we just picked a group of automatic cars with low efficiency and a group of manual cars with higher efficiency ? Let's do statistical test.
+
+## Model fitting and hypothesis testing
+
+### Two samples t-test
+
+We are interested to know if an automatic or manual transmission is better for MPG. So we test hypothesis that cars with an automatic transmission use more fuel than cars with manual transmission. To compare two samples to see if they have different means, we use two sample T-test.
+
+```{r, echo = FALSE }
+test <- t.test(mpg ~ am, data = mtcars, var.equal = FALSE, paired = FALSE, conf.level = .95)
+test
+```
+p-value for the probability that the difference between the two groups could appear by chance is very low. The confidence interval tells us how much lower the miles per gallon is in manual cars than it is in automatic cars. We can be confident that the true difference is between 3.2 and 11.3.
+
+
+### Simple linear regression model
+
+We can also fit factor variables as regressors and come up with analysis of variance as a special case of linear regression models.This case we use transmission ( `am` ) as factor variable.
+
+``` {r, echo = FALSE}
+mtcars$amfactor <- factor(mtcars$am, labels = c("automatic", "manual"))
+summary(lm(mpg ~ amfactor, data = mtcars))$coef
+```
+The intercept of `17.14` is the mean MPG for automatic transmission. The slope `7.24`is the change in the mean between manual and automatic transmission. The P value for the slope is significant. **So we can conclude according to this model that the manual transmission is more fuel efficient.**
+
+## Multivariate linear regression model
+
+Modelling based on only one predictor variable does not seem to be sufficient and good enough (Adjusted R-squared explains only `0.3385` of residuals in the model). In this part we develop a model that include the effect of other variables.
+
+### Model selection
+We want to know what combination of predictors will best predict the fuel efficiency.
+If we include all the variables in the model, none of them will be a significant predictor of MPG (Based on p-value at 0.95 confidence level). 
+``` {r, echo  = FALSE}
+model.allVariables <- lm(mpg ~ cyl + disp + hp + drat + wt + qsec + factor(vs) + factor(am) + gear + carb, data = mtcars) 
+summary(model.allVariables)$coef
+```
+### Detecting collinearity
+A major problem with multivariate regression is collinearity. If two or more predictor variables are highly correlated, and they are both entered into a regression mode, it increases the true standard error and you get a very unstable estimates of the slope. We can assess the collinearity by variance inflation factor (VIF).
+``` {r, echo = FALSE}
+library(car)
+vif(model.allVariables)
+```
+Values for the VIF larger than 10 are considered large, so we have lot of variables, which maybe have collinearity.
+
+### Stepwise selection method
+
+Among available methods we decided to perform stepwise selection to help select a subset of variables that best explain the MPG.
+``` {r, echo = FALSE}
+
+library(MASS)
+step <- stepAIC(model.allVariables, direction = "both", trace = FALSE)
+summary(step)$coef
+```
+This shows that in addition to transmission, weight of the vehicle as well as acceleration speed have the highest relation to explaining the variation in mpg. The adjusted R^2 is 83 % which means that the model explaisns 83 % of the variation in mpg indicating a robust and highly predictive model.
+
+
+### Nested likelihood ratio test
+Let verify our result from stepwise seletion model with nested likelihood test
+``` {r, echo = FALSE}
+fit1 <- lm(mpg ~factor(am), data = mtcars)
+fit2 <- lm(mpg ~factor(am) + wt, data = mtcars)
+fit3 <- lm(mpg ~factor(am) + wt + qsec, data = mtcars)
+fit4 <- lm(mpg ~factor(am) + wt + qsec + hp, data = mtcars)
+fit5 <- lm(mpg ~factor(am) + wt + qsec + hp + drat, data = mtcars)
+anova(fit1, fit2, fit3, fit4, fit5)
+```
+The result is consistent with stepwise selection model and adding more variables will dramatically increase variation in the model and the p-value immediately becomes insignificant.
+
+### Fitting the final model
+
+We can fit the final model
+``` {r, echo = FALSE }
+model.final <- lm(mpg ~ wt + qsec + factor(am), data = mtcars)
+summary(model.final)
+```
+All the variables are now statistically significant. This model explains 83% of variances in miles per gallon (mpg). When we read the coefficient for `am`, we can say that, **on average, manual transmission cars have 2.94 MPGs more than automatic transmission cars.** However, this effect was much higher when we did not adjust the weight and qsec in our model.
+
+
+## Regression diagnostics
+
+We perform some diagnostics on our final mode. Plots are found in Appendix
+
+### Detecting collinearity
+
+``` {r, echo = FALSE}
+vif(model.final)
+```
+This time VIF numbers are reasonable
+
+### Residuals versus the fitted values
+
+By plotting residuals versus fitted values, we are looking for any sort of pattern. Plots show that there are no specific pattern in the residuals.
+
+### Normality of residuals
+
+The normal Q-Q plot shows us a reasonable linearity in residuals when when quantiles is changed.
+
+### Influental Observations
+
+Residuals versus leverage has no outliers, as all values are within the 0.5 bands.
+
+## Appendix
+
+
+``` {r, echo = FALSE, warning = FALSE, message = FALSE}
+pairs(mtcars, panel = panel.smooth, main = "Figure 1. Pair Graph of Motor Trend Car road Tests")
+```
+
+```{r, echo = FALSE}
+boxplot(mtcars$mpg ~ mtcars$am, xlab = "Transmission (0 = Automatic, 1 = Manual)", ylab = "MPG",
+        main = "Figure 2. Boxplot of MPG vs. Transmission")
+```
+
+```{r, echo = FALSE}
+par(mfrow = c(2, 2), oma = c(0, 0, 4, 0))
+plot(model.final)
+title("Figure 3. Residual analysis of final model", outer = TRUE)
+```
+
